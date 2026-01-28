@@ -44,7 +44,18 @@ export async function createClientAccount(formData: FormData) {
   if (pErr) return { ok: false, error: pErr.message };
 
   // Create default subscription + empty criteria
-  await supabase.from("subscriptions").insert({ client_id: data.user.id, status: "active", paid_amount_eur: 210 });
+ const starts = new Date();
+const ends = new Date(starts);
+ends.setMonth(ends.getMonth() + 5);
+
+await supabase.from("subscriptions").insert({
+  client_id: data.user.id,
+  status: "active",
+  paid_amount_eur: 210,
+  starts_at: starts.toISOString().slice(0,10),
+  ends_at: ends.toISOString().slice(0,10),
+});
+
   await supabase.from("search_criteria").insert({ client_id: data.user.id, city: null });
 
   revalidatePath("/app/agent");
