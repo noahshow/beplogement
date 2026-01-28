@@ -34,14 +34,40 @@ export async function createClientAccount(formData: FormData) {
 
   if (error || !data.user) return { ok: false, error: error?.message ?? "Erreur création user" };
 
-  const supabase = createSupabaseServer();
-  const { error: pErr } = await supabase.from("profiles").insert({
-    id: data.user.id,
+    const userId = data.user.id;
+
+  // ✅ Tout en admin (bypass RLS)
+  const { error: pErr } = await admin.from("profiles").insert({
+    id: userId,
     role: "client",
     full_name: parsed.data.full_name ?? null,
   });
-
   if (pErr) return { ok: false, error: pErr.message };
+
+  // ✅ Abonnement 5 mois
+  const starts = new Date();
+  const ends = new Date(starts);
+  ends.setMonth(ends.getMonth() + 5);
+
+  const { error: sErr } = await admin.from("subscriptions").insert({
+    client_id: userId,
+    status: "active",
+    paid_amount_eur: 210,
+    starts_at: starts.toISOString().slice(0, 10),
+    ends_at: ends.toISOString().slice(0, 10),
+  });
+  if (sErr) return { ok: false, error: sErr.message };
+
+  // ✅ Critères (vide au départ)
+  const { error: cErr } = await admin.from("search_criteria").insert({
+    client_id: userId,
+    city: null,
+  });
+  if (cErr) return { ok: false, error: cErr.message };
+
+  revalidatePath("/app/agent/clients");
+  return { ok: true, userId };
+
 
   // Create default subscription + empty criteria
  const starts = new Date();
